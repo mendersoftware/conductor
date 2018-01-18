@@ -6,7 +6,7 @@ FROM java:8-jre-alpine
 MAINTAINER Netflix OSS <conductor@netflix.com>
 
 # Install curl 
-RUN apk add --no-cache curl
+RUN apk add --no-cache bash curl python3 
 
 # Make app folders
 RUN mkdir -p /app/config /app/logs /app/libs
