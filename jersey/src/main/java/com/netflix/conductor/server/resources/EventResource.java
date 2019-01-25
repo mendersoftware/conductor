@@ -13,9 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- * 
- */
+
 package com.netflix.conductor.server.resources;
 
 import java.util.List;
@@ -35,15 +33,14 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
-import com.netflix.conductor.common.metadata.events.EventExecution;
+import com.google.common.base.Preconditions;
 import com.netflix.conductor.common.metadata.events.EventHandler;
-import com.netflix.conductor.core.events.EventProcessor;
 import com.netflix.conductor.core.events.EventQueues;
-import com.netflix.conductor.service.ExecutionService;
-import com.netflix.conductor.service.MetadataService;
+import com.netflix.conductor.service.EventService;
 
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import org.apache.commons.lang3.StringUtils;
 
 
 /**
@@ -57,73 +54,58 @@ import io.swagger.annotations.ApiOperation;
 @Singleton
 public class EventResource {
 
-	private MetadataService service;
-	
-	private EventProcessor ep;
-	
-	private ExecutionService es;
+	private final EventService eventService;
 	
 	@Inject
-	public EventResource(MetadataService service, EventProcessor ep, ExecutionService es) {
-		this.service = service;
-		this.ep = ep;
-		this.es = es;
+	public EventResource(EventService eventService) {
+		this.eventService = eventService;
 	}
 
 	@POST
 	@ApiOperation("Add a new event handler.")
 	public void addEventHandler(EventHandler eventHandler) {
-		service.addEventHandler(eventHandler);
+        eventService.addEventHandler(eventHandler);
 	}
 
 	@PUT
 	@ApiOperation("Update an existing event handler.")
 	public void updateEventHandler(EventHandler eventHandler) {
-		service.updateEventHandler(eventHandler);
+        eventService.updateEventHandler(eventHandler);
 	}
-	
 
 	@DELETE
 	@Path("/{name}")
 	@ApiOperation("Remove an event handler")
 	public void removeEventHandlerStatus(@PathParam("name") String name) {
-		service.removeEventHandlerStatus(name);
+        eventService.removeEventHandlerStatus(name);
 	}
 
 	@GET
 	@ApiOperation("Get all the event handlers")
 	public List<EventHandler> getEventHandlers() {
-		return service.getEventHandlers();
+		return eventService.getEventHandlers();
 	}
 	
 	@GET
 	@Path("/{event}")
 	@ApiOperation("Get event handlers for a given event")
-	public List<EventHandler> getEventHandlersForEvent(@PathParam("event") String event, @QueryParam("activeOnly") @DefaultValue("true") boolean activeOnly) {
-		return service.getEventHandlersForEvent(event, activeOnly);
+	public List<EventHandler> getEventHandlersForEvent(@PathParam("event") String event,
+                                                       @QueryParam("activeOnly") @DefaultValue("true") boolean activeOnly) {
+        return eventService.getEventHandlersForEvent(event, activeOnly);
 	}
 	
 	@GET
 	@Path("/queues")
 	@ApiOperation("Get registered queues")
 	public Map<String, ?> getEventQueues(@QueryParam("verbose") @DefaultValue("false") boolean verbose) {
-		return (verbose ? ep.getQueueSizes() : ep.getQueues());
+		return eventService.getEventQueues(verbose);
 	}
 
 	@GET
 	@Path("/queues/providers")
 	@ApiOperation("Get registered queue providers")
 	public List<String> getEventQueueProviders() {
-		return EventQueues.providers();
-	}
-	
-	@GET
-	@Path("/executions/{eventHandlerName}/{eventName}/{messageId}")
-	@ApiOperation("Get Event executions")
-	public List<EventExecution> getEventExecutions(
-			@PathParam("eventHandlerName") String eventHandlerName, @PathParam("eventName") String eventName, @PathParam("messageId") String messageId, 
-			@QueryParam("max") @DefaultValue("100") int max) {
-		return es.getEventExecutions(eventHandlerName, eventName, messageId, max);
+		return eventService.getEventQueueProviders();
 	}
 	
 }

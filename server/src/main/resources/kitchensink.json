@@ -8,9 +8,23 @@
       "taskReferenceName": "task_1",
       "inputParameters": {
         "mod": "${workflow.input.mod}",
-        "oddEven": "${workflow.input.oddEven}"
+        "oddEven": "${workflow.input.oddEven}",
+        "env": {
+        	"taskId": "${CPEWF_TASK_ID}",
+        	"workflowId": "${HOSTNAME}"
+        }
       },
       "type": "SIMPLE"
+    },
+    {
+      "name": "event_task",
+      "taskReferenceName": "event_0",
+      "inputParameters": {
+        "mod": "${workflow.input.mod}",
+        "oddEven": "${workflow.input.oddEven}"
+      },
+      "type": "EVENT",
+      "sink": "conductor"
     },
     {
       "name": "dyntask",

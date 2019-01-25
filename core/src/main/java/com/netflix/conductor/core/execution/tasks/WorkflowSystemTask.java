@@ -18,6 +18,7 @@
  */
 package com.netflix.conductor.core.execution.tasks;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -38,6 +39,7 @@ public class WorkflowSystemTask {
 	public WorkflowSystemTask(String name) {
 		this.name = name;
 		registry.put(name, this);
+		SystemTaskWorkerCoordinator.add(this);
 	}
 
 	/**
@@ -45,9 +47,8 @@ public class WorkflowSystemTask {
 	 * @param workflow Workflow for which the task is being started
 	 * @param task Instance of the Task
 	 * @param executor Workflow Executor
-	 * @throws Exception If there is an error when starting the task
 	 */
-	public void start(Workflow workflow, Task task, WorkflowExecutor executor) throws Exception {
+	public void start(Workflow workflow, Task task, WorkflowExecutor executor) {
 		//Do nothing unless overridden by the task implementation
 	}
 	
@@ -57,9 +58,8 @@ public class WorkflowSystemTask {
 	 * @param task Instance of the Task
 	 * @param executor Workflow Executor
 	 * @return true, if the execution has changed the task status.  return false otherwise.
-	 * @throws Exception If there is an error when starting the task
 	 */
-	public boolean execute(Workflow workflow, Task task, WorkflowExecutor executor) throws Exception {
+	public boolean execute(Workflow workflow, Task task, WorkflowExecutor executor) {
 		return false;
 	}
 	
@@ -68,11 +68,25 @@ public class WorkflowSystemTask {
 	 * @param workflow Workflow for which the task is being started
 	 * @param task Instance of the Task
 	 * @param executor Workflow Executor
-	 * @throws Exception If there is an error when starting the task
 	 */
-	public void cancel(Workflow workflow, Task task, WorkflowExecutor executor) throws Exception {
+	public void cancel(Workflow workflow, Task task, WorkflowExecutor executor) {
 	}
 	
+	/**
+	 * 
+	 * @return True if the task is supposed to be started asynchronously using internal queues.
+	 */
+	public boolean isAsync() {
+		return false;
+	}
+	
+	/**
+	 * 
+	 * @return Time in seconds after which the task should be retried if rate limited or remains in in_progress after start method execution. 
+	 */
+	public int getRetryTimeInSecond() {
+		return 30;
+	}
 	/**
 	 * 
 	 * @return name of the system task
@@ -82,10 +96,9 @@ public class WorkflowSystemTask {
 	}
 	
 	@Override
-	public String toString(){
+	public String toString() {
 		return name;
 	}
-	
 	
 	public static boolean is(String type){
 		return registry.containsKey(type);
@@ -94,6 +107,9 @@ public class WorkflowSystemTask {
 	public static WorkflowSystemTask get(String type) {
 		return registry.get(type);
 	}
-
+	
+	public static Collection<WorkflowSystemTask> all() {
+		return registry.values();
+	}
 	
 }

@@ -1,29 +1,5 @@
 import http from '../core/HttpClient';
 
-export function searchWorkflows(query, search, hours, fullstr) {
-
-  return function (dispatch) {
-    dispatch({
-      type: 'GET_WORKFLOWS',
-      search: search
-    });
-
-    if(fullstr && search != null && search.length > 0) {
-      search = '"' + search + '"';
-    }
-    return http.get('/api/wfe/' + status + '?q=' + query + '&h=' + hours + '&freeText=' + search).then((data) => {
-      dispatch({
-        type: 'RECEIVED_WORKFLOWS',
-        data
-      });
-    }).catch((e) => {
-      dispatch({
-        type: 'REQUEST_ERROR',
-        e
-      });
-    });
-  }
-}
 
 export function getWorkflowDetails(workflowId){
   return function (dispatch) {
@@ -159,12 +135,10 @@ export function resumeWorfklow(workflowId) {
 
 //metadata
 export function getWorkflowDefs() {
-
   return function (dispatch) {
     dispatch({
       type: 'LIST_WORKFLOWS'
     });
-
 
     return http.get('/api/wfe/metadata/workflow').then((data) => {
       dispatch({
@@ -227,17 +201,18 @@ export function getTaskDefs() {
   }
 }
 
-export function updateWorkflow(workflow){
+export function getQueueData() {
+
   return function (dispatch) {
     dispatch({
-      type: 'REQUESTED_UPDATE_WORKFLOW_DEF',
-      workflow
+      type: 'GET_POLL_DATA'
     });
 
 
-    return http.put('/api/wfe/metadata/', workflow).then((data) => {
+    return http.get('/api/wfe/queue/data').then((data) => {
       dispatch({
-        type: 'RECEIVED_UPDATE_WORKFLOW_DEF'
+        type: 'RECEIVED_POLL_DATA',
+        queueData: data
       });
     }).catch((e) => {
       dispatch({
@@ -247,6 +222,7 @@ export function updateWorkflow(workflow){
     });
   }
 }
+
 
 export function getEventHandlers() {
 
@@ -259,28 +235,6 @@ export function getEventHandlers() {
     return http.get('/api/events').then((data) => {
       dispatch({
         type: 'RECEIVED_LIST_EVENT_HANDLERS',
-        events : data
-      });
-    }).catch((e) => {
-      dispatch({
-        type: 'REQUEST_ERROR',
-        e
-      });
-    });
-  }
-}
-
-export function getEvents(event, time, query) {
-
-  return function (dispatch) {
-    dispatch({
-      type: 'LIST_EVENT'
-    });
-
-
-    return http.get('/api/events/executions').then((data) => {
-      dispatch({
-        type: 'RECEIVED_LIST_EVENT',
         events : data
       });
     }).catch((e) => {

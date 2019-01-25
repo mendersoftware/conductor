@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2016 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- * 
- */
+
 package com.netflix.conductor.server.resources;
 
-import java.util.List;
-import java.util.Map;
+import com.netflix.conductor.common.metadata.tasks.Task;
+import com.netflix.conductor.service.AdminService;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -32,15 +32,8 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
-
-import com.netflix.conductor.common.metadata.tasks.Task;
-import com.netflix.conductor.core.config.Configuration;
-import com.netflix.conductor.core.execution.WorkflowExecutor;
-import com.netflix.conductor.dao.QueueDAO;
-import com.netflix.conductor.service.ExecutionService;
-
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author Viren
@@ -52,18 +45,11 @@ import io.swagger.annotations.ApiOperation;
 @Consumes({ MediaType.APPLICATION_JSON })
 @Singleton
 public class AdminResource {
+	private final AdminService adminService;
 
-	private Configuration config;
-
-	private ExecutionService service;
-	
-	private QueueDAO queue;
-	
-	@Inject
-	public AdminResource(Configuration config, ExecutionService service, QueueDAO queue) {
-		this.config = config;
-		this.service = service;
-		this.queue = queue;
+    @Inject
+	public AdminResource(AdminService adminService) {
+		this.adminService = adminService;
 	}
 
 	@ApiOperation(value = "Get all the configuration parameters")
@@ -72,20 +58,17 @@ public class AdminResource {
 	@Produces(MediaType.APPLICATION_JSON)
 	@Path("/config")
 	public Map<String, Object> getAllConfig() {
-		return config.getAll();
+        return adminService.getAllConfig();
 	}
-	
 	
 	@GET
 	@Path("/task/{tasktype}")
 	@ApiOperation("Get the list of pending tasks for a given task type")
 	@Consumes({ MediaType.WILDCARD })
-	public List<Task> view(@PathParam("tasktype") String taskType,  @DefaultValue("0") @QueryParam("start") Integer start, @DefaultValue("100") @QueryParam("count") Integer count) throws Exception {
-		List<Task> tasks = service.getPendingTasksForTaskType(taskType);
-		int total = start + count;
-		total = (tasks.size() > total) ? total : tasks.size();
-		if(start > tasks.size()) start = tasks.size();
-		return tasks.subList(start, total); 
+	public List<Task> view(@PathParam("tasktype") String taskType,
+                           @DefaultValue("0") @QueryParam("start") Integer start,
+                           @DefaultValue("100") @QueryParam("count") Integer count) {
+        return adminService.getListOfPendingTask(taskType, start, count);
 	}
 
 	@POST
@@ -93,9 +76,8 @@ public class AdminResource {
 	@ApiOperation("Queue up all the running workflows for sweep")
 	@Consumes({ MediaType.WILDCARD })
 	@Produces({ MediaType.TEXT_PLAIN })
-	public String requeueSweep(@PathParam("workflowId") String workflowId) throws Exception {
-		boolean pushed = queue.pushIfNotExists(WorkflowExecutor.deciderQueue, workflowId, config.getSweepFrequency());
-		return pushed + "." + workflowId;
+	public String requeueSweep(@PathParam("workflowId") String workflowId) {
+        return adminService.requeueSweep(workflowId);
 	}
-	
+
 }

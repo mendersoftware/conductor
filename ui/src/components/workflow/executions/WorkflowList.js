@@ -1,251 +1,208 @@
+/* eslint-disable no-restricted-globals */
+
 import React, { Component } from 'react';
-import { Link, browserHistory } from 'react-router';
-import { Breadcrumb, BreadcrumbItem, Input, Well, Button, Panel, DropdownButton, MenuItem, Popover, OverlayTrigger, ButtonGroup, Grid, Row, Col, Table  } from 'react-bootstrap';
-import {BootstrapTable, TableHeaderColumn} from 'react-bootstrap-table';
+import PropTypes from "prop-types";
 import { connect } from 'react-redux';
-import { searchWorkflows, getWorkflowDefs } from '../../../actions/WorkflowActions';
-import WorkflowAction  from './WorkflowAction';
-import Typeahead from 'react-bootstrap-typeahead';
+import { createSelector } from 'reselect'
+import {changeSearch, fetchSearchResults} from '../../../actions/search';
+import { performBulkOperation } from '../../../actions/bulk';
+import WorkflowSearch from "./WorkflowSearch";
+import WorkflowTable from './WorkflowTable';
 
-const Workflow = React.createClass({
+import difference from 'lodash/difference';
+import filter from "lodash/filter";
+import get from "lodash/get";
+import includes from "lodash/includes";
+import intersection from 'lodash/intersection';
+import isEmpty from "lodash/isEmpty";
+import map from 'lodash/map';
+import size from "lodash/size";
+import uniq from 'lodash/uniq';
+import without from 'lodash/without';
+import WorkflowBulkAction from './WorkflowBulkAction';
 
-  getInitialState() {
 
-    let workflowTypes = this.props.location.query.workflowTypes;
-    if(workflowTypes != null && workflowTypes != '') {
-      workflowTypes = workflowTypes.split(',');
-    }else {
-      workflowTypes = [];
+class Workflow extends Component {
+  constructor(props) {
+    super(props);
+
+    this.nextPage = this.nextPage.bind(this);
+    this.prevPage = this.prevPage.bind(this);
+
+    this.bulkProcess = this.bulkProcess.bind(this);
+    this.onChangeBulkProcessSelection = this.onChangeBulkProcessSelection.bind(this);
+
+    this.handleSelect = this.handleSelect.bind(this);
+    this.handleSelectAll = this.handleSelectAll.bind(this);
+
+    this.state = {
+      selected: [],
+      bulkProcessOperation: "pause",
+      bulkValidationMessage: ""
+    };
+  }
+
+  componentDidUpdate(prevProps) {
+    const {search} = this.props;
+    const {selected} = this.state;
+
+    // remove from selection after updating filters
+    if (prevProps.search.results !== search.results) {
+      this.setState({
+        selected: intersection(map(search.results, 'workflowId'), selected),
+        bulkValidationMessage: ""
+      });
     }
-    let status = this.props.location.query.status;
-    if(status != null && status != '') {
-      status = status.split(',');
-    }else {
-      status = [];
+  }
+
+  componentWillReceiveProps({bulk: {successfulResults}}) {
+    // remove successful bulk workflows from selection
+    const remaining = difference(this.state.selected, successfulResults);
+
+    if (size(remaining) !== size(this.state.selected)) {
+      this.setState({selected: remaining});
     }
-    let search = this.props.location.query.q;
-    if(search == null || search == 'undefined' || search == '') {
-      search = '';
+  }
+
+  nextPage() {
+    const {changeSearch, fetchSearchResults, search} = this.props;
+    const {start} = search;
+
+    changeSearch({...search, start: start + 100});
+    fetchSearchResults();
+  }
+
+  prevPage() {
+    const {changeSearch, fetchSearchResults, search} = this.props;
+    const {start} = search;
+
+    changeSearch({...search, start: start - 100});
+    fetchSearchResults();
+  }
+
+  onChangeBulkProcessSelection({target: {value}}) {
+    this.setState({bulkProcessOperation: value, bulkValidationMessage: ""})
+  }
+
+  bulkProcess() {
+    const {selected, bulkProcessOperation} = this.state;
+    const {performBulkOperation}  = this.props;
+
+    if (size(selected) === 0) {
+      this.setState({bulkValidationMessage: "Error: No workflows selected"});
+
+      return;
     }
 
-    return {
-      search: search,
-      workflowTypes: workflowTypes,
-      status: status,
-      h: this.props.location.query.h,
-      workflows: [],
-      update: true,
-      fullstr: true
-    }
-  },
-  componentWillMount(){
-    this.props.dispatch(getWorkflowDefs());
-    this.doDispatch();
-  },
-  componentWillReceiveProps(nextProps) {
+    performBulkOperation(bulkProcessOperation, selected);
+  }
 
-    let workflowDefs = nextProps.workflows;
-    workflowDefs = workflowDefs ? workflowDefs : [];
-    workflowDefs = workflowDefs.map(workflowDef => workflowDef.name);
+  handleSelect({workflowId, id}, isSelected) {
+    const {selected} = this.state;
 
-    let search = nextProps.location.query.q;
-    if(search == null || search == 'undefined' || search == '') {
-      search = '';
-    }
-    let h = nextProps.location.query.h;
-    if(isNaN(h)) {
-      h = '';
-    }
-    let status = nextProps.location.query.status;
-    if(status != null && status != '') {
-      status = status.split(',');
-    }else {
-      status = [];
+    if (isSelected){
+      this.setState({
+        selected: uniq([...selected, workflowId]),
+        bulkValidationMessage: ""
+      });
+    } else {
+      this.setState({
+        selected: without(selected, workflowId),
+        bulkValidationMessage: ""
+      });
     }
 
-    let update = true;
-    update = this.state.search != search;
-    update = update || (this.state.h != h);
-    update = update || (this.state.status.join(',') != status.join(','));
+    return false;
+  }
 
-    this.setState({
-      search : search,
-      h : h,
-      update : update,
-      status : status,
-      workflows : workflowDefs
-    });
+  handleSelectAll(isSelected, rows) {
+    if (isSelected){
+      this.setState({selected: map(rows, 'workflowId'), bulkValidationMessage: ""});
+    } else {
+      this.setState({selected: [], bulkValidationMessage: ""});
+    }
 
-    this.refreshResults();
-  },
-  searchBtnClick() {
-    this.state.update = true;
-    this.refreshResults();
-  },
-  refreshResults() {
-    if(this.state.update) {
-      this.state.update = false;
-      this.urlUpdate();
-      this.doDispatch();
-    }
-  },
-  urlUpdate() {
-    let q = this.state.search;
-    let h = this.state.h;
-    let workflowTypes = this.state.workflowTypes;
-    let status = this.state.status;
-    this.props.history.pushState(null, "/workflow?q=" + q + "&h=" + h + "&workflowTypes=" + workflowTypes + "&status=" + status);
-  },
-  doDispatch() {
+    return false;
+  }
 
-    let search = '';
-    if(this.state.search != '') {
-      search = this.state.search;
-    }
-    let h = this.state.h;
-    let query = [];
-
-    if(this.state.workflowTypes.length > 0) {
-      query.push('workflowType IN (' + this.state.workflowTypes.join(',') + ') ');
-    }
-    if(this.state.status.length > 0) {
-      query.push('status IN (' + this.state.status.join(',') + ') ');
-    }
-    this.props.dispatch(searchWorkflows(query.join(' AND '), search, this.state.h, this.state.fullstr));
-  },
-  workflowTypeChange(workflowTypes) {
-    this.state.update = true;
-    this.state.workflowTypes = workflowTypes;
-    this.refreshResults();
-  },
-  statusChange(status) {
-    this.state.update = true;
-    this.state.status = status;
-    this.refreshResults();
-  },
-  searchChange(e){
-    let val = e.target.value;
-    this.setState({ search: val });
-  },
-  hourChange(e){
-    this.state.update = true;
-    this.state.h = e.target.value;
-    this.refreshResults();
-  },
-  keyPress(e){
-   if(e.key == 'Enter'){
-     this.state.update = true;
-     var q = e.target.value;
-     this.setState({search: q});
-     this.refreshResults();
-   }
-  },
-  prefChange(e) {
-    this.setState({
-      fullstr:e.target.checked
-    });
-    this.state.update = true;
-    this.refreshResults();
-  },
  render() {
-    let wfs = [];
-    let totalHits = 0;
-    let found = 0;
-    if(this.props.data.hits) {
-      wfs = this.props.data.hits;
-      totalHits = this.props.data.totalHits;
-      found = wfs.length;
-    }
-    const workflowNames = this.state.workflows?this.state.workflows:[];
-    const statusList = ['RUNNING','COMPLETED','FAILED','TIMED_OUT','TERMINATED','PAUSED'];
-    function linkMaker(cell, row) {
-      return <Link to={`/workflow/id/${cell}`}>{cell}</Link>;
-    };
-    function zeroPad(num) {
-      return ('0' + num).slice(-2);
-    }
-    function formatDate(cell, row){
-      if(cell == null || !cell.split) {
-        return '';
-      }
-      let cll = cell;
-      let c = cll.split("T");
-      let time = c[1].split(":");
-      let hh = zeroPad(time[0]);
-      let mm = zeroPad(time[1]);
-      let ss = zeroPad(time[2].replace("Z",""));
+    const {location, history, bulk, metadata, search} = this.props;
+    const {workflows} = metadata;
+    const {bulkProcessOperation, bulkValidationMessage, selected} = this.state;
 
-      let dt = c[0] + "T" + hh + ":" + mm + ":" + ss + "Z";
-
-      if(dt == null || dt == ''){
-        return '';
-      }
-      return new Date(dt).toLocaleString('en-US');
-    };
-
-    function miniDetails(cell, row){
-      return (<ButtonGroup><OverlayTrigger trigger="click" rootClose placement="left" overlay={
-        <Popover title="Workflow Details" width={400}>
-          <span className="red">{row.reasonForIncompletion == null?'':<span>{row.reasonForIncompletion}<hr/></span>}</span>
-          <b>Input</b><br/>
-          <span className="small" style={{maxWidth:'400px'}}>{row.input}</span>
-          <hr/><b>Output</b><br/>
-          <span className="small">{row.output}</span>
-          <hr/><br/>
-        </Popover>
-
-      }><Button bsSize="xsmall">details</Button></OverlayTrigger></ButtonGroup>);
-    };
-
-    const innerGlyphicon = (<i className="fa fa-search"></i>);
 
     return (
       <div className="ui-content">
-        <div>
-          <Panel header="Filter Workflows (Press Enter to search)">
-          <Grid fluid={true}>
-            <Row className="show-grid">
-              <Col md={4}>
-                <Input type="input" placeholder="Search" groupClassName="" ref="search" value={this.state.search} labelClassName="" onKeyPress={this.keyPress} onChange={this.searchChange}/>
-                &nbsp;<i className="fa fa-angle-up fa-1x"></i>&nbsp;&nbsp;<label className="small nobold">Free Text Query</label>
-                &nbsp;&nbsp;<input type="checkbox" checked={this.state.fullstr} onChange={this.prefChange} ref="fullstr"/><label className="small nobold">&nbsp;Search for entire string</label>
-                </Col>
-              <Col md={4}>
-                <Typeahead ref="workflowTypes" onChange={this.workflowTypeChange} options={workflowNames} placeholder="Filter by workflow type" multiple={true} selected={this.state.workflowTypes}/>
-                &nbsp;<i className="fa fa-angle-up fa-1x"></i>&nbsp;&nbsp;<label className="small nobold">Filter by Workflow Type</label>
-              </Col>
-              <Col md={2}>
-                <Typeahead ref="status" onChange={this.statusChange} options={statusList} placeholder="Filter by status" selected={this.state.status} multiple={true}/>
-                &nbsp;<i className="fa fa-angle-up fa-1x"></i>&nbsp;&nbsp;<label className="small nobold">Filter by Workflow Status</label>
-              </Col>
-              <Col md={2}>
-                <Input className="number-input" type="text" ref="h" groupClassName="inline" labelClassName="" label="" value={this.state.h} onChange={this.hourChange}/>
-                &nbsp;&nbsp;&nbsp;<Button bsSize="medium" bsStyle="success" onClick={this.searchBtnClick} className="fa fa-search search-label">&nbsp;&nbsp;Search</Button>
-                <br/>&nbsp;&nbsp;&nbsp;<i className="fa fa-angle-up fa-1x"></i>&nbsp;&nbsp;<label className="small nobold">Created (in past hours)</label>
-              </Col>
-            </Row>
-          </Grid>
-          <form>
+        <WorkflowSearch search={search} workflows={workflows} location={location} history={history}/>
 
-          </form>
-          </Panel>
-        </div>
-        <span>Displaying <b>{found}</b> of <b>{totalHits}</b> Workflows Found.</span>
-        <BootstrapTable data={wfs} striped={true} hover={true} search={false} exportCSV={false} pagination={false} options={{sizePerPage:100}}>
-          <TableHeaderColumn dataField="workflowType" isKey={true} dataAlign="left" dataSort={true}>Workflow</TableHeaderColumn>
-          <TableHeaderColumn dataField="workflowId" dataSort={true} dataFormat={linkMaker}>Workflow ID</TableHeaderColumn>
-          <TableHeaderColumn dataField="status" dataSort={true}>Status</TableHeaderColumn>
-          <TableHeaderColumn dataField="startTime" dataSort={true} dataFormat={formatDate}>Start Time</TableHeaderColumn>
-          <TableHeaderColumn dataField="updateTime" dataSort={true} dataFormat={formatDate}>Last Updated</TableHeaderColumn>
-          <TableHeaderColumn dataField="endTime" hidden={false} dataFormat={formatDate}>End Time</TableHeaderColumn>
-          <TableHeaderColumn dataField="reasonForIncompletion" hidden={false}>Failure Reason</TableHeaderColumn>
-          <TableHeaderColumn dataField="input" width="300">Input</TableHeaderColumn>
-          <TableHeaderColumn dataField="workflowId" width="300" dataFormat={miniDetails}>&nbsp;</TableHeaderColumn>
-        </BootstrapTable>
+        <WorkflowBulkAction isFetching={bulk.isFetching} selectedCount={size(selected)}
+                            validationMessage={bulkValidationMessage}
+                            successfulResults={bulk.successfulResults}
+                            errorResults={bulk.errorResults}
+                            bulkProcess={this.bulkProcess}
+                            onChangeBulkProcessSelection={this.onChangeBulkProcessSelection}
+                            bulkProcessOperation={bulkProcessOperation}/>
 
-        <br/><br/>
+        <WorkflowTable results={search.results} selected={selected}
+                       isFetching={search.isFetching}
+                       totalHits={search.totalHits}
+                       start={search.start}
+                       handleSelect={this.handleSelect}
+                       handleSelectAll={this.handleSelectAll}
+                       nextPage={this.nextPage}
+                       prevPage={this.prevPage}
+        />
+
+        <br />
+        <br />
       </div>
-    );
+    )
   }
-});
-export default connect(state => state.workflow)(Workflow);
+}
+
+Workflow.propTypes = {
+  changeSearch: PropTypes.func.isRequired,
+  fetchSearchResults: PropTypes.func.isRequired,
+  performBulkOperation: PropTypes.func.isRequired,
+  search: PropTypes.shape({
+    isFetching: PropTypes.bool.isRequired,
+    start: PropTypes.number.isRequired,
+    types: PropTypes.array.isRequired,
+    results: PropTypes.array.isRequired,
+    totalHits: PropTypes.number.isRequired
+  }),
+  metadata: PropTypes.shape({
+    workflows: PropTypes.array.isRequired
+  }),
+  bulk: PropTypes.shape({
+    isFetching: PropTypes.bool.isRequired,
+    error: PropTypes.string,
+    successfulResults: PropTypes.arrayOf(PropTypes.string).isRequired,
+    errorResults: PropTypes.objectOf(PropTypes.string).isRequired
+  })
+};
+
+const getFilteredWorkflows = (results, states) => {
+  if (isEmpty(states)) {
+    return results;
+  } else {
+    return filter(results, r => includes(states, get(r, 'status')));
+  }
+};
+
+const getStates = state => state.states;
+const getResults = state => state.results;
+
+const getFilteredWorkflowSelector = createSelector([getResults, getStates], getFilteredWorkflows);
+
+function mapStateToProps({bulk, metadata, search}) {
+  return {
+    search: {...search,
+      results: getFilteredWorkflowSelector(search)
+    }, metadata, bulk
+  };
+}
+
+const mapDispatchToProps = {changeSearch, fetchSearchResults, performBulkOperation};
+
+export default connect(mapStateToProps, mapDispatchToProps)(Workflow);

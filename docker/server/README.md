@@ -3,7 +3,10 @@
 This Dockerfile create the conductor:server image
 
 ## Building the image
-`docker build -t conductor:server .`
+
+Run the following commands from the project root.
+
+`docker build -f docker/server/Dockerfile -t conductor:server .`
 
 ## Running the conductor server
  - Standalone server (interal DB): `docker run -p 8080:8080 -d -t conductor:server`

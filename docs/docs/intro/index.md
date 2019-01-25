@@ -8,7 +8,7 @@ The API and storage layers are pluggable and provide ability to work with differ
 !!! hint "Running in production"
 	For a detailed configuration guide on installing and running Conductor server in production visit [Conductor Server](/server) documentation.
 
-## Runnin In-Memory Server
+## Running In-Memory Server
 
 Follow the steps below to quickly bring up a local Conductor instance backed by an in-memory database with a simple kitchen sink workflow that demonstrate all the capabilities of Conductor.
 
@@ -33,13 +33,21 @@ Swagger APIs can be accessed at [http://localhost:8080/](http://localhost:8080/)
 cd ui
 gulp watch
 ```
-Launch UI at [http://localhost:3000/](http://localhost:3000/)
+
+#### Or Start all the services using [docker-compose](/docker/docker-compose.yaml)
+
+```shell
+cd docker
+docker-compose up
+```
+
+If you ran it locally, launch UI at [http://localhost:3000/](http://localhost:3000/) or if you have ran it using docker-compose launch the UI at [http://localhost:5000/](http://localhost:5000/)
 
 !!!Note:
 	The server will load a sample kitchen sink workflow definition by default.  See [here](/metadata/kitchensink/) for details.
 
 
-#Runtime Model
+# Runtime Model
 Conductor follows RPC based communication model where workers are running on a separate machine from the server.  Workers communicate with server over HTTP based endpoints and employs polling model for managing work queues.
 
 ![name_for_alt](overview.png)

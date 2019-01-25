@@ -1,60 +1,85 @@
-# Docker compose for netflix conductor + elasticsearch + dynomite
-version: '2'
+version: '2.3'
+
 services:
   conductor-server:
     environment:
       - CONFIG_PROP=config.properties
     image: conductor:server
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: docker/server/Dockerfile
+    networks:
+      - internal
     ports:
       - 8080:8080
+    links:
+      - elasticsearch:es
+      - dynomite:dyno1
     depends_on:
-      - elasticsearch
-      - dynomite
-    networks:
-      conductornet:
-        aliases:
-          - conductor-server
+      elasticsearch:
+        condition: service_healthy
+      dynomite:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "3"
 
   conductor-ui:
     environment:
       - WF_SERVER=http://conductor-server:8080/api/
     image: conductor:ui
     build:
-      context: ./ui
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: docker/ui/Dockerfile
+    networks:
+      - internal
     ports:
       - 5000:5000
-    depends_on:
+    links:
       - conductor-server
-    networks:
-      conductornet:
-        aliases:
-          - conductor-ui
 
   dynomite:
     image: v1r3n/dynomite
+    networks:
+      - internal
     ports:
       - 8102:8102
-      - 22122:22122
-      - 22222:22222
-    networks:
-      conductornet:
-        aliases:
-          - dyno1
+    healthcheck:
+      test: timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/8102'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "3"
 
+  # https://www.elastic.co/guide/en/elasticsearch/reference/5.6/docker.html
   elasticsearch:
-    image: elasticsearch:2.4
-    ports:
-      - 9300:9300
-      - 9200:9200
+    image: docker.elastic.co/elasticsearch/elasticsearch:5.6.8
+    environment:
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - transport.host=0.0.0.0
+      - discovery.type=single-node
+      - xpack.security.enabled=false
     networks:
-      conductornet:
-        aliases:
-          - es
+      - internal
+    ports:
+      - 9200:9200
+      - 9300:9300
+    healthcheck:
+      test: timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/9300'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "3"
 
 networks:
-  conductornet:
-    driver: bridge
+  internal:

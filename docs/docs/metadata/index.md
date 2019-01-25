@@ -28,15 +28,15 @@ Conductor maintains a registry of worker task types.  A task type MUST be regist
 |name|Task Type|Unique|
 |retryCount|No. of retries to attempt when a task is marked as failure||
 |retryLogic|Mechanism for the retries|see possible values below|
-|timeoutSeconds|Time in milliseconds, after which the task is marked as TIMED_OUT if not completed after transiting to ```IN_PROGRESS``` status|No timeouts if set to 0|
+|timeoutSeconds|Time in milliseconds, after which the task is marked as TIMED_OUT if not completed after transitioning to ```IN_PROGRESS``` status for the first time|No timeouts if set to 0|
 |timeoutPolicy|Task's timeout policy|see possible values below|
-|responseTimeoutSeconds|if greater than 0, the task is rescheduled if not updated with a status after this time.  Useful when the worker polls for the task but fails to complete due to errors/network failure.
+|responseTimeoutSeconds|If greater than 0, the task is rescheduled if not updated with a status after this time (heartbeat mechanism). Useful when the worker polls for the task but fails to complete due to errors/network failure.
 ||
 |outputKeys|Set of keys of task's output.  Used for documenting task's output||
 
 **Retry Logic**
 
-* FIXED : Reschedule the task afer the ```retryDelaySeconds```
+* FIXED : Reschedule the task after the ```retryDelaySeconds```
 * EXPONENTIAL_BACKOFF : reschedule after ```retryDelaySeconds  * attempNo```
  
 **Timeout Policy**
@@ -46,7 +46,7 @@ Conductor maintains a registry of worker task types.  A task type MUST be regist
 * ALERT_ONLY : Registers a counter (task_timeout)
 
 # Workflow Definition
-Workflows are define using a JSON based DSL.
+Workflows are defined using a JSON based DSL.
 
 **Example**
 ```json
@@ -85,7 +85,7 @@ Workflows are define using a JSON based DSL.
 |name|Name of the workflow||
 |description|Descriptive name of the workflow||
 |version|Numeric field used to identify the version of the schema.  Use incrementing numbers|When starting a workflow execution, if not specified, the definition with highest version is used|
-|tasks|An array of task defintions as described below.||
+|tasks|An array of task definitions as described below.||
 |outputParameters|JSON template used to generate the output of the workflow|If not specified, the output is defined as the output of the _last_ executed task|
 |inputParameters|List of input parameters.  Used for documenting the required inputs to workflow|optional|
 
@@ -98,9 +98,11 @@ Below are the mandatory minimum parameters required for each task:
 |name|Name of the task.  MUST be registered as a task type with Conductor before starting workflow||
 |taskReferenceName|Alias used to refer the task within the workflow.  MUST be unique.||
 |type|Type of task. SIMPLE for tasks executed by remote workers, or one of the system task types||
+|description|Description of the task|optional|
+|optional|true  or false.  When set to true - workflow continues even if the task fails.  The status of the task is reflected as `COMPLETED_WITH_ERRORS`|Defaults to `false`|
 |inputParameters|JSON template that defines the input given to the task|See "wiring inputs and outputs" for details|
 
-In addition to these paramters, additional parameters speciific to the task type are required as documented [here](/metadata/systask/)
+In addition to these parameters, additional parameters specific to the task type are required as documented [here](/metadata/systask/)
 
 # Wiring Inputs and Outputs
 
@@ -121,7 +123,7 @@ __${SOURCE.input/output.JSONPath}__
 
 
 !!! note "JSON Path Support"
-	Conductor supports [JSONPath](http://goessner.net/articles/JsonPath/) specification and uses Java implementaion from [here](https://github.com/jayway/JsonPath).
+	Conductor supports [JSONPath](http://goessner.net/articles/JsonPath/) specification and uses Java implementation from [here](https://github.com/jayway/JsonPath).
 
 **Example**
 
@@ -170,7 +172,7 @@ And the output of the _loc_task_ as the following;
 }
 ```
 
-When scheduling the task, Conductor will merge the values from workflow input and loc_tak's output and create the input to the task as follows:
+When scheduling the task, Conductor will merge the values from workflow input and loc_task's output and create the input to the task as follows:
 
 ```json
 {
