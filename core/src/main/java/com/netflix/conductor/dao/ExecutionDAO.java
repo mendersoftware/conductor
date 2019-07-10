@@ -85,13 +85,6 @@ public interface ExecutionDAO {
 	 * 		false: If the {@link Task} is not rateLimited
 	 */
 	boolean exceedsRateLimitPerFrequency(Task task);
-
-	/**
-	 *
-	 * @param tasks Multiple tasks to be updated
-	 *
-	 */
-	void updateTasks(List<Task> tasks);
 	
 	/**
 	 * 
@@ -173,26 +166,25 @@ public interface ExecutionDAO {
 	/**
 	 * 
 	 * @param workflowId workflow instance id
-	 * @param includeTasks if set, includes the tasks (pending and completed)
+	 * @param includeTasks if set, includes the tasks (pending and completed) sorted by Task Sequence number in Workflow.
 	 * @return Workflow instance details
 	 *  
 	 */
 	Workflow getWorkflow(String workflowId, boolean includeTasks);
 
 	/**
-	 * 
-	 * @param workflowName Name of the workflow
+	 * @param workflowName name of the workflow
+	 * @param version the workflow version
 	 * @return List of workflow ids which are running
 	 */
-	List<String> getRunningWorkflowIds(String workflowName);
+	List<String> getRunningWorkflowIds(String workflowName, int version);
 
 	/**
-	 * 
 	 * @param workflowName Name of the workflow
+	 * @param version the workflow version
 	 * @return List of workflows that are running
-	 *  
 	 */
-	List<Workflow> getPendingWorkflowsByType(String workflowName);
+	List<Workflow> getPendingWorkflowsByType(String workflowName, int version);
 
 	/**
 	 * 

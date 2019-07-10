@@ -120,35 +120,40 @@ public class ExecutionService {
 	public List<Task> poll(String taskType, String workerId, String domain, int count, int timeoutInMilliSecond) {
 		if (timeoutInMilliSecond > MAX_POLL_TIMEOUT_MS) {
 			throw new ApplicationException(ApplicationException.Code.INVALID_INPUT,
-                    "Long Poll Timeout value cannot be more than 5 seconds");
+					"Long Poll Timeout value cannot be more than 5 seconds");
 		}
 		String queueName = QueueUtils.getQueueName(taskType, domain);
 
-		List<String> taskIds = queueDAO.pop(queueName, count, timeoutInMilliSecond);
 		List<Task> tasks = new LinkedList<>();
-		for(String taskId : taskIds) {
-			Task task = getTask(taskId);
-			if(task == null) {
-				continue;
-			}
+		try {
+			List<String> taskIds = queueDAO.pop(queueName, count, timeoutInMilliSecond);
+			for (String taskId : taskIds) {
+				Task task = getTask(taskId);
+				if (task == null) {
+					continue;
+				}
 
-			if(executionDAOFacade.exceedsInProgressLimit(task)) {
-				continue;
-			}
+				if (executionDAOFacade.exceedsInProgressLimit(task)) {
+					continue;
+				}
 
-			task.setStatus(Status.IN_PROGRESS);
-			if (task.getStartTime() == 0) {
-				task.setStartTime(System.currentTimeMillis());
-				Monitors.recordQueueWaitTime(task.getTaskDefName(), task.getQueueWaitTime());
+				task.setStatus(Status.IN_PROGRESS);
+				if (task.getStartTime() == 0) {
+					task.setStartTime(System.currentTimeMillis());
+					Monitors.recordQueueWaitTime(task.getTaskDefName(), task.getQueueWaitTime());
+				}
+				task.setCallbackAfterSeconds(0);    // reset callbackAfterSeconds when giving the task to the worker
+				task.setWorkerId(workerId);
+				task.setPollCount(task.getPollCount() + 1);
+				executionDAOFacade.updateTask(task);
+				tasks.add(task);
 			}
-			task.setCallbackAfterSeconds(0);	// reset callbackAfterSeconds when giving the task to the worker
-			task.setWorkerId(workerId);
-			task.setPollCount(task.getPollCount() + 1);
-			executionDAOFacade.updateTask(task);
-			tasks.add(task);
+			executionDAOFacade.updateTaskLastPoll(taskType, domain, workerId);
+			Monitors.recordTaskPoll(queueName);
+		} catch (Exception e) {
+			logger.error("Error polling for task: {} from worker: {} in domain: {}, count: {}", taskType, workerId, domain, count, e);
+			Monitors.error(this.getClass().getCanonicalName(), "taskPoll");
 		}
-		executionDAOFacade.updateTaskLastPoll(taskType, domain, workerId);
-		Monitors.recordTaskPoll(queueName);
 		return tasks;
 	}
 
@@ -176,7 +181,7 @@ public class ExecutionService {
 					allPollData.addAll(getPollData(QueueUtils.getQueueNameWithoutDomain(k)));
 				}
 			} catch (Exception e) {
-				logger.error(e.getMessage(), e);
+				logger.error("Unable to fetch all poll data!", e);
 			}
 		});
 		return allPollData;
@@ -239,7 +244,7 @@ public class ExecutionService {
 		List<WorkflowDef> workflowDefs = metadataDAO.getAll();
 		int count = 0;
 		for (WorkflowDef workflowDef : workflowDefs) {
-			List<Workflow> workflows = workflowExecutor.getRunningWorkflows(workflowDef.getName());
+			List<Workflow> workflows = workflowExecutor.getRunningWorkflows(workflowDef.getName(), workflowDef.getVersion());
 			for (Workflow workflow : workflows) {
 				count += requeuePendingTasks(workflow, threshold);
 			}
@@ -329,8 +334,8 @@ public class ExecutionService {
 		return executionDAOFacade.getWorkflowById(workflowId, includeTasks);
 	}
 
-	public List<String> getRunningWorkflows(String workflowName) {
-		return executionDAOFacade.getRunningWorkflowIdsByName(workflowName);
+	public List<String> getRunningWorkflows(String workflowName, int version) {
+		return executionDAOFacade.getRunningWorkflowIds(workflowName, version);
 	}
 
 	public void removeWorkflow(String workflowId, boolean archiveWorkflow) {
@@ -378,11 +383,13 @@ public class ExecutionService {
 		SearchResult<String> result = executionDAOFacade.searchTasks(query, freeText, start, size, sortOptions);
 		List<TaskSummary> workflows = result.getResults().stream()
 				.parallel()
-				.map(taskId -> {
+				.map(executionDAOFacade::getTaskById)
+				.filter(Objects::nonNull)
+				.map(task -> {
 					try {
-						return new TaskSummary(executionDAOFacade.getTaskById(taskId));
+						return new TaskSummary(task);
 					} catch(Exception e) {
-						logger.error(e.getMessage(), e);
+						logger.error("Error fetching task by id: {}", task.getTaskId(), e);
 						return null;
 					}
 				})

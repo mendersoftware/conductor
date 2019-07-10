@@ -175,7 +175,29 @@ public class ConstraintParamUtilTest {
         workflowDef.setTasks(tasks);
 
         List<String> results = ConstraintParamUtil.validateInputParam(inputParam,"task_1", workflowDef);
-        assertEquals(results.size(), 1);
+        assertEquals(results.size(), 0);
+    }
+
+    @Test
+    public void testExtractParamPathComponentsWithListInputParamWithEmptyString() {
+        WorkflowDef workflowDef = constructWorkflowDef();
+
+        WorkflowTask workflowTask_1 = new WorkflowTask();
+        workflowTask_1.setName("task_1");
+        workflowTask_1.setTaskReferenceName("task_1");
+        workflowTask_1.setType(TaskType.TASK_TYPE_SIMPLE);
+
+        Map<String, Object> inputParam = new HashMap<>();
+        inputParam.put("taskId", new String[] {""});
+        workflowTask_1.setInputParameters(inputParam);
+
+        List<WorkflowTask> tasks = new ArrayList<>();
+        tasks.add(workflowTask_1);
+
+        workflowDef.setTasks(tasks);
+
+        List<String> results = ConstraintParamUtil.validateInputParam(inputParam,"task_1", workflowDef);
+        assertEquals(results.size(), 0);
     }
 
     @Test
@@ -198,5 +220,28 @@ public class ConstraintParamUtilTest {
 
         List<String> results = ConstraintParamUtil.validateInputParam(inputParam,"task_1", workflowDef);
         assertEquals(results.size(), 1);
+    }
+
+    @Test
+    public void testExtractParamPathComponentsWithPredefineEnums() {
+        WorkflowDef workflowDef = constructWorkflowDef();
+
+        WorkflowTask workflowTask_1 = new WorkflowTask();
+        workflowTask_1.setName("task_1");
+        workflowTask_1.setTaskReferenceName("task_1");
+        workflowTask_1.setType(TaskType.TASK_TYPE_SIMPLE);
+
+        Map<String, Object> inputParam = new HashMap<>();
+        inputParam.put("NETFLIX_ENV", "${CPEWF_TASK_ID}");
+        inputParam.put("entryPoint", "/tools/pdfwatermarker_mux.py ${NETFLIX_ENV} ${CPEWF_TASK_ID} alpha");
+        workflowTask_1.setInputParameters(inputParam);
+
+        List<WorkflowTask> tasks = new ArrayList<>();
+        tasks.add(workflowTask_1);
+
+        workflowDef.setTasks(tasks);
+
+        List<String> results = ConstraintParamUtil.validateInputParam(inputParam,"task_1", workflowDef);
+        assertEquals(results.size(), 0);
     }
 }

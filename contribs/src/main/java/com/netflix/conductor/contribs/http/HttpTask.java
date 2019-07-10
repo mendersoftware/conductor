@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2016 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-/**
- * 
  */
 package com.netflix.conductor.contribs.http;
 
@@ -118,7 +115,11 @@ public class HttpTask extends WorkflowSystemTask {
 			HttpResponse response = httpCall(input);
 			logger.info("response {}, {}", response.statusCode, response.body);
 			if(response.statusCode > 199 && response.statusCode < 300) {
-				task.setStatus(Status.COMPLETED);
+				if (isAsyncComplete(task)) {
+					task.setStatus(Status.IN_PROGRESS);
+				} else {
+					task.setStatus(Status.COMPLETED);
+				}
 			} else {
 				if(response.body != null) {
 					task.setReasonForIncompletion(response.body.toString());
@@ -127,12 +128,13 @@ public class HttpTask extends WorkflowSystemTask {
 				}
 				task.setStatus(Status.FAILED);
 			}
+			//noinspection ConstantConditions
 			if(response != null) {
 				task.getOutputData().put("response", response.asMap());
 			}
 			
 		}catch(Exception e) {
-			logger.error(String.format("Failed to invoke http task - uri: %s, vipAddress: %s", input.getUri(), input.getVipAddress()), e);
+			logger.error("Failed to invoke http task: {} - uri: {}, vipAddress: {} in workflow: {}", task.getTaskId(), input.getUri(), input.getVipAddress(), task.getWorkflowInstanceId(), e);
 			task.setStatus(Status.FAILED);
 			task.setReasonForIncompletion("Failed to invoke http task due to: " + e.toString());
 			task.getOutputData().put("response", e.toString());
@@ -148,6 +150,13 @@ public class HttpTask extends WorkflowSystemTask {
 	protected HttpResponse httpCall(Input input) throws Exception {
 		Client client = rcm.getClient(input);
 
+		if(input.connectionTimeOut != null ) {
+			client.setConnectTimeout(input.connectionTimeOut);
+		}
+
+		if(input.readTimeOut != null ) {
+			client.setReadTimeout(input.readTimeOut);
+		}
 		if(input.oauthConsumerKey != null) {
 			logger.info("Configuring OAuth filter");
 			OAuthParameters params = new OAuthParameters().consumerKey(input.oauthConsumerKey).signatureMethod("HMAC-SHA1").version("1.0");
@@ -212,7 +221,7 @@ public class HttpTask extends WorkflowSystemTask {
 			}
 
 		} catch (IOException jpe) {
-			logger.error(jpe.getMessage(), jpe);
+			logger.error("Error extracting response body", jpe);
 			return json;
 		}
 	}
@@ -295,6 +304,12 @@ public class HttpTask extends WorkflowSystemTask {
 		private String oauthConsumerKey;
 
 		private String oauthConsumerSecret;
+
+		private  Integer connectionTimeOut;
+
+		private Integer  readTimeOut;
+
+
 
 		/**
 		 * @return the method
@@ -431,5 +446,29 @@ public class HttpTask extends WorkflowSystemTask {
 		public void setAppName(String appName) {
 			this.appName = appName;
 		}
+
+
+		/**
+		 * @return the connectionTimeOut
+		 */
+		public Integer getConnectionTimeOut() {
+			return connectionTimeOut;
+		}
+
+		/**
+		 * @return the readTimeOut
+		 */
+		public Integer getReadTimeOut() {
+			return readTimeOut;
+		}
+
+		public void setConnectionTimeOut(Integer connectionTimeOut) {
+			this.connectionTimeOut = connectionTimeOut;
+		}
+
+		public void setReadTimeOut(Integer readTimeOut) {
+			this.readTimeOut = readTimeOut;
+		}
+
 	}
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2016 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,9 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- * 
- */
 package com.netflix.conductor.common.metadata.workflow;
 
 import com.github.vmg.protogen.annotations.ProtoField;
@@ -25,19 +22,17 @@ import com.netflix.conductor.common.constraints.NoSemiColonConstraint;
 import com.netflix.conductor.common.constraints.TaskReferenceNameUniqueConstraint;
 import com.netflix.conductor.common.metadata.Auditable;
 
+import javax.validation.Valid;
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
-
-import javax.validation.Valid;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
 
 
 /**
@@ -74,8 +69,9 @@ public class WorkflowDef extends Auditable {
 	private String failureWorkflow;
 
 	@ProtoField(id = 8)
-    @Min(value = 1, message = "workflowDef schemaVersion: ${validatedValue} should be >= {value}")
-    private int schemaVersion = 1;
+    @Min(value = 2, message = "workflowDef schemaVersion: {value} is only supported")
+	@Max(value = 2, message = "workflowDef schemaVersion: {value} is only supported")
+    private int schemaVersion = 2;
 
 	//By default a workflow is restartable
 	@ProtoField(id = 9)
@@ -139,7 +135,7 @@ public class WorkflowDef extends Auditable {
 	public void setInputParameters(List<String> inputParameters) {
 		this.inputParameters = inputParameters;
 	}
-	
+
 	/**
 	 * @return the outputParameters
 	 */
@@ -153,7 +149,7 @@ public class WorkflowDef extends Auditable {
 	public void setOutputParameters(Map<String, Object> outputParameters) {
 		this.outputParameters = outputParameters;
 	}
-		
+
 	/**
 	 * @return the version
 	 */
@@ -161,7 +157,6 @@ public class WorkflowDef extends Auditable {
 		return version;
 	}
 
-	
 	/**
 	 * @return the failureWorkflow
 	 */
@@ -236,7 +231,7 @@ public class WorkflowDef extends Auditable {
 	public String key(){
 		return getKey(name, version);
 	}
-	
+
 	public static String getKey(String name,  int version){
 		return name + "." + version;
 	}
@@ -249,7 +244,7 @@ public class WorkflowDef extends Auditable {
 			 if(nextTask != null){
 				 return nextTask;
 			 }
-			 
+
 			 if(task.getTaskReferenceName().equals(taskReferenceName) || task.has(taskReferenceName)){
 				 break;
 			 }
@@ -259,15 +254,12 @@ public class WorkflowDef extends Auditable {
 		}
 		return null;
 	}
-	
+
 	public WorkflowTask getTaskByRefName(String taskReferenceName){
-		Optional<WorkflowTask> found = collectTasks().stream()
+		return collectTasks().stream()
 				.filter(workflowTask -> workflowTask.getTaskReferenceName().equals(taskReferenceName))
-				.findFirst();
-		if(found.isPresent()){
-			return found.get();
-		}
-		return null;
+				.findFirst()
+				.orElse(null);
 	}
 
 	public List<WorkflowTask> collectTasks() {
