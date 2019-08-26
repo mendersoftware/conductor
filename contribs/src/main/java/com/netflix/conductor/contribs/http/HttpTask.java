@@ -152,11 +152,11 @@ public class HttpTask extends WorkflowSystemTask {
 	protected HttpResponse httpCall(Input input) throws Exception {
 		Client client = rcm.getClient(input);
 
-		if(input.connectionTimeOut != null ) {
+		if(input.connectionTimeOut>0) {
 			client.setConnectTimeout(input.connectionTimeOut);
 		}
 
-		if(input.readTimeOut != null ) {
+		if(input.readTimeOut>0) {
 			client.setReadTimeout(input.readTimeOut);
 		}
 		if(input.oauthConsumerKey != null) {
@@ -307,9 +307,9 @@ public class HttpTask extends WorkflowSystemTask {
 
 		private String oauthConsumerSecret;
 
-		private  Integer connectionTimeOut;
+		private int connectionTimeOut;
 
-		private Integer  readTimeOut;
+		private int readTimeOut;
 
 
 
@@ -453,22 +453,22 @@ public class HttpTask extends WorkflowSystemTask {
 		/**
 		 * @return the connectionTimeOut
 		 */
-		public Integer getConnectionTimeOut() {
+		public int getConnectionTimeOut() {
 			return connectionTimeOut;
 		}
 
 		/**
 		 * @return the readTimeOut
 		 */
-		public Integer getReadTimeOut() {
+		public int getReadTimeOut() {
 			return readTimeOut;
 		}
 
-		public void setConnectionTimeOut(Integer connectionTimeOut) {
+		public void setConnectionTimeOut(int connectionTimeOut) {
 			this.connectionTimeOut = connectionTimeOut;
 		}
 
-		public void setReadTimeOut(Integer readTimeOut) {
+		public void setReadTimeOut(int readTimeOut) {
 			this.readTimeOut = readTimeOut;
 		}
 
