@@ -12,7 +12,9 @@ COPY . /conductor
 WORKDIR /conductor
 
 # Build the server on run
-RUN ./gradlew build -x test
+RUN find . -name dependencies.lock -exec rm -f {} \; && \
+    ./gradlew generateLock updateLock saveLock && \
+    ./gradlew build -x test
 
 # 1. Bin stage
 FROM openjdk:8-jre-alpine
